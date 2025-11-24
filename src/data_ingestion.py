@@ -9,7 +9,7 @@ OUTPUT_DIR = os.path.join(BASE_DIR, "data", "raw")
 OUTPUT_FILE = os.path.join(OUTPUT_DIR, "stock_data.csv")
 
 # Daftar Bank BUMN (Himbara + Syariah)
-TICKERS = ["BBRI.JK", "BMRI.JK", "BBNI.JK", "BBTN.JK", "BRIS.JK"]
+TICKERS = ["BBRI.JK", "BBNI.JK", "BBTN.JK", "BRIS.JK"]
 
 def download_data():
     print(f">> Memulai proses ingestion untuk {len(TICKERS)} saham...")

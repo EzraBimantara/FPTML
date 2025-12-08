@@ -79,6 +79,10 @@ jobs:
           git push origin main || echo "No changes to push"
 
       # 5. DOCKER BUILD (Simpan Image Project)
+      - name: 🔡 Lowercase Repo Name
+        run: |
+          echo "IMAGE_NAME=${GITHUB_REPOSITORY,,}" >> $GITHUB_ENV
+
       - name: 🐳 Login to Container Registry
         uses: docker/login-action@v3
         with:
@@ -92,7 +96,6 @@ jobs:
           context: .
           push: true
           tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
-
   # ========================================
   # JOB 2: PULL FROM DVC -> DEPLOY
   # ========================================

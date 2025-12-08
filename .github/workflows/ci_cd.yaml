@@ -107,7 +107,7 @@ jobs:
       # Jangan sampai credential GDrive ter-upload ke HF
       - name: 🧹 Cleanup Secrets
         run: |
-          rm -rf .dvc gdrive_user_credentials.json .git
+          rm -rf  gdrive_user_credentials.json .git
           # Hapus folder .git agar kita bisa init ulang untuk push ke HF
 
       # 3. PUSH KE HUGGING FACE SPACE

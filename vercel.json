@@ -17,7 +17,6 @@
     }
   ],
   "env": {
-      "PIP_REQUIREMENTS_FILE": "requirements-deploy.txt",
       "MODEL_DIR": "models",
       "DATA_PATH": "data/raw/stock_data.csv"
   }

@@ -125,16 +125,23 @@ jobs:
           dvc remote modify --local gdrive_storage --unset gdrive_use_service_account
           dvc remote modify --local gdrive_storage gdrive_user_credentials_file gdrive_user_credentials.json
 
-      # 6. PULL DARI DVC (Ambil data yang baru saja dipush job sebelumnya)
+      # 6. PULL DARI DVC
       - name: 📥 Pull Models & Data from DVC
         run: |
           dvc pull models.dvc data/raw/stock_data.csv.dvc
 
-      # 7. CLEANUP (Wajib untuk Vercel Limit)
-      # Hapus DVC dan credentials USER sebelum dikirim ke Vercel
-      - name: 🧹 Cleanup before Deploy
+      # 7. CLEANUP & PREPARE (INI PERUBAHANNYA)
+      - name: 🧹 Cleanup & Prepare Requirements
         run: |
+          # 1. Hapus file kredensial dan folder DVC (Wajib)
           rm -rf .dvc gdrive_user_credentials.json
+          
+          # 2. Hapus requirements.txt bawaan (yang untuk training)
+          rm requirements.txt
+          
+          # 3. Ganti nama 'requirements-deploy.txt' jadi 'requirements.txt'
+          # Agar Vercel otomatis membacanya tanpa konfigurasi aneh-aneh
+          mv requirements-deploy.txt requirements.txt
 
       # 8. DEPLOY
       - name: 🚀 Deploy to Vercel

@@ -8,3 +8,4 @@ joblib
 flask
 dvc
 dvc-gdrive
+gunicorn

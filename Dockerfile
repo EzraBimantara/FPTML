@@ -1,19 +1,24 @@
+
 FROM python:3.9-slim
 
-WORKDIR /app
 
-COPY requirements.txt .
+RUN useradd -m -u 1000 user
+USER user
+ENV HOME=/home/user \
+    PATH=/home/user/.local/bin:$PATH
 
-
-RUN pip install --no-cache-dir -r requirements.txt
-
-
-COPY src/ src/
-
-RUN mkdir -p data/raw models
+WORKDIR $HOME/app
 
 
-ENV PREFECT_API_URL="http://host.docker.internal:4200/api"
+COPY --chown=user requirements.txt .
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt
 
 
-CMD ["python", "src/main_flow.py"]
+COPY --chown=user . .
+
+
+EXPOSE 7860
+
+
+CMD ["gunicorn", "-b", "0.0.0.0:7860", "src.app:app"]

@@ -6,20 +6,21 @@ on:
       - main
 
 env:
-  PYTHON_VERSION: '3.10'  
-  REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}
+  PYTHON_VERSION: '3.10'
+  
+  # Format: username/nama-space
+  HF_SPACE_NAME: 'EzrBmntr/stock-prediction' 
 
 jobs:
   # ========================================
-  # JOB 1: TRAIN -> DVC PUSH -> DOCKER BUILD
+  # JOB 1: TRAIN & VERSION
   # ========================================
   train_and_version:
-    name: 'Train, Version & Build'
+    name: 'Train Model'
     runs-on: ubuntu-latest
     permissions:
-      contents: write # Izin untuk commit .dvc file
-      packages: write # Izin untuk upload Docker
+      contents: write
+      packages: write
 
     steps:
       - name: 📥 Checkout Code
@@ -27,33 +28,24 @@ jobs:
         with:
           fetch-depth: 0
 
-      # 1. SETUP LINGKUNGAN
       - name: 🐍 Setup Python
         uses: actions/setup-python@v4
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: 'pip'
 
-      - name: 📦 Install Full Dependencies (Training)
+      - name: 📦 Install Dependencies
         run: |
           pip install -r requirements.txt
-          # Pastikan DVC terinstall (jaga-jaga jika belum ada di requirements.txt)
           pip install dvc dvc-gdrive
 
-      #  SETUP CREDENTIALS 
       - name: 🔑 Setup Google Drive Credentials
         run: |
-          # 1. Tulis secret (User Token) ke file json
           echo '${{ secrets.GDRIVE_CREDENTIALS_DATA }}' > gdrive_user_credentials.json
-          
-          # 2. Pastikan mode Service Account MATI (agar tidak error quota)
           dvc remote modify --local gdrive_storage --unset gdrive_use_service_account
-          
-          # 3. Arahkan DVC ke file User Credentials yang baru dibuat
           dvc remote modify --local gdrive_storage gdrive_user_credentials_file gdrive_user_credentials.json
 
-      # 2. TRAINING 
-      - name: 🚀 Run Training Pipeline (Main Flow)
+      - name: 🚀 Run Training Pipeline
         env:
           PREFECT_API_KEY: ${{ secrets.PREFECT_API_KEY }}
           PREFECT_API_URL: ${{ secrets.PREFECT_API_URL }}
@@ -61,94 +53,82 @@ jobs:
           export PYTHONPATH=$PYTHONPATH:$(pwd)
           python src/main_flow.py
 
-      # 3. DVC PUSH (Simpan Hasil Training)
       - name: 📤 Version & Push to DVC
         run: |
-          # Add file yang baru saja digenerate oleh script python
           dvc add data/raw/stock_data.csv models/
           dvc push
 
-      # 4. GIT COMMIT (Update Metadata DVC)
-      - name: 💾 Commit New DVC Metadata
+      - name: 💾 Commit DVC Metadata
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add data/raw/stock_data.csv.dvc models.dvc
-          # Commit dengan [skip ci] agar tidak looping terus menerus
-          git diff --staged --quiet || git commit -m "🤖 CI: Update data & models version [skip ci]"
+          git diff --staged --quiet || git commit -m "🤖 CI: Update data & models [skip ci]"
           git push origin main || echo "No changes to push"
 
-      # 5. DOCKER BUILD (Simpan Image Project)
-      - name: 🔡 Lowercase Repo Name
-        run: |
-          echo "IMAGE_NAME=${GITHUB_REPOSITORY,,}" >> $GITHUB_ENV
-
-      - name: 🐳 Login to Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: 🐳 Build and Push Docker Image
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          push: true
-          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
   # ========================================
-  # JOB 2: PULL FROM DVC -> DEPLOY
+  # JOB 2: DEPLOY TO HUGGING FACE
   # ========================================
-  deploy_production:
-    name: 'Deploy to Vercel'
+  deploy_huggingface:
+    name: 'Deploy to HF Space'
     runs-on: ubuntu-latest
-    needs: train_and_version # Tunggu training & upload selesai
+    needs: train_and_version
     if: github.ref == 'refs/heads/main'
 
     steps:
       - name: 📥 Checkout Code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          lfs: true 
 
-      # Kita install DVC saja di sini untuk ambil data
+      # 1. AMBIL MODEL ASLI DARI DVC
+      # Kita butuh file .pkl fisik untuk dikirim ke Hugging Face
       - name: 🐍 Setup Python & DVC
         uses: actions/setup-python@v4
         with:
           python-version: ${{ env.PYTHON_VERSION }}
-      
+
       - name: 📦 Install DVC
         run: pip install dvc dvc-gdrive
 
-      #  SETUP CREDENTIALS (USER MODE)
-      - name: 🔑 Setup Google Drive Credentials (Again)
+      - name: 🔑 Setup Google Drive Credentials
         run: |
           echo '${{ secrets.GDRIVE_CREDENTIALS_DATA }}' > gdrive_user_credentials.json
           dvc remote modify --local gdrive_storage --unset gdrive_use_service_account
           dvc remote modify --local gdrive_storage gdrive_user_credentials_file gdrive_user_credentials.json
 
-      # 6. PULL DARI DVC
-      - name: 📥 Pull Models & Data from DVC
+      - name: 📥 Pull Models & Data
         run: |
+          # Tarik file fisik dari GDrive ke Runner
           dvc pull models.dvc data/raw/stock_data.csv.dvc
 
-      # 7. CLEANUP & PREPARE (INI PERUBAHANNYA)
-      - name: 🧹 Cleanup & Prepare Requirements
+      # 2. BERSIHKAN FILE RAHASIA
+      # Jangan sampai credential GDrive ter-upload ke HF
+      - name: 🧹 Cleanup Secrets
         run: |
-          # 1. Hapus file kredensial dan folder DVC (Wajib)
-          rm -rf .dvc gdrive_user_credentials.json
-          
-          # 2. Hapus requirements.txt bawaan (yang untuk training)
-          rm requirements.txt
-          
-          # 3. Ganti nama 'requirements-deploy.txt' jadi 'requirements.txt'
-          # Agar Vercel otomatis membacanya tanpa konfigurasi aneh-aneh
-          mv requirements-deploy.txt requirements.txt
+          rm -rf .dvc gdrive_user_credentials.json .git
+          # Hapus folder .git agar kita bisa init ulang untuk push ke HF
 
-      # 8. DEPLOY
-      - name: 🚀 Deploy to Vercel
-        uses: amondnet/vercel-action@v25
-        with:
-          vercel-token: ${{ secrets.VERCEL_TOKEN }}
-          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
-          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
-          vercel-args: '--prod'
-          vercel-version: 'latest' 
+      # 3. PUSH KE HUGGING FACE SPACE
+      - name: 🚀 Push to Hugging Face Hub
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          HF_USERNAME: ${{ secrets.HF_USERNAME }}
+          
+        run: |
+          # Install Git LFS
+          git lfs install
+          
+          # Inisialisasi Git baru khusus untuk upload ke HF
+          git init
+          git config user.email "actions@github.com"
+          git config user.name "GitHub Actions"
+          
+          # Tambahkan semua file (Kode + Model .pkl + CSV)
+          git add .
+          git commit -m "Deploy from GitHub Actions: ${{ github.sha }}"
+          
+          # Force Push ke Remote HF
+          # Menggunakan token untuk autentikasi
+          git push --force https://$HF_USERNAME:$HF_TOKEN@huggingface.co/spaces/${{ env.HF_SPACE_NAME }} main

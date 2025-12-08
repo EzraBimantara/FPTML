@@ -2,67 +2,42 @@ import os
 import yfinance as yf
 import pandas as pd
 from datetime import datetime, timedelta
+from prefect import task
 
-# --- KONFIGURASI ---
-BASE_DIR = r"C:\Users\HP\TML_MLOPS"
-OUTPUT_DIR = os.path.join(BASE_DIR, "data", "raw")
-OUTPUT_FILE = os.path.join(OUTPUT_DIR, "stock_data.csv")
+# Daftar Bank Default
+DEFAULT_TICKERS = ["BBRI.JK", "BMRI.JK", "BBNI.JK", "BBTN.JK", "BRIS.JK"]
 
-# Daftar Bank BUMN (Himbara + Syariah)
-TICKERS = ["BBRI.JK", "BBNI.JK", "BBTN.JK", "BRIS.JK"]
-
-def download_data():
-    print(f">> Memulai proses ingestion untuk {len(TICKERS)} saham...")
+@task(name="Ingest Data", retries=3, retry_delay_seconds=5)
+def ingest_task(tickers=None, output_path="data/raw/stock_data.csv"):
+    if tickers is None:
+        tickers = DEFAULT_TICKERS
+        
+    print(f" Memulai Ingestion untuk: {tickers}")
     
-    # Hitung tanggal 5 tahun lalu dari hari ini
     end_date = datetime.today()
     start_date = end_date - timedelta(days=5*365)
     
     all_data = []
-
-    for ticker in TICKERS:
-        print(f"   Downloading: {ticker}...")
-        
-        # Menggunakan Ticker object untuk akses actions (Dividends/Splits) lebih akurat
-        t = yf.Ticker(ticker)
-        
-        # auto_adjust=False agar kita dapat OHLC mentah + Adj Close terpisah
-        # actions=True untuk memastikan Dividends & Splits terambil
-        df = t.history(start=start_date, end=end_date, auto_adjust=False, actions=True)
-        
-        if df.empty:
-            print(f"   !! Peringatan: Data kosong untuk {ticker}")
-            continue
-            
-        # Bersihkan Index Tanggal
-        df.reset_index(inplace=True)
-        df['Date'] = df['Date'].dt.tz_localize(None)
-        
-        # Tambah kolom nama saham (PENTING untuk membedakan data)
-        df['Ticker'] = ticker
-        
-        all_data.append(df)
+    for ticker in tickers:
+        try:
+            t = yf.Ticker(ticker)
+            df = t.history(start=start_date, end=end_date, auto_adjust=False, actions=True)
+            if not df.empty:
+                df.reset_index(inplace=True)
+                df['Date'] = df['Date'].dt.tz_localize(None)
+                df['Ticker'] = ticker
+                all_data.append(df)
+        except Exception as e:
+            print(f" Error downloading {ticker}: {e}")
 
     if not all_data:
-        print("!! Gagal: Tidak ada data yang berhasil diunduh.")
-        return
+        raise RuntimeError("Data Ingestion Gagal: Tidak ada data yang terunduh.")
 
-    # Gabungkan semua data bank menjadi satu DataFrame panjang
     final_df = pd.concat(all_data, ignore_index=True)
-
-    # Pastikan kolom yang diminta ada & urutannya rapi
-    expected_cols = ['Date', 'Ticker', 'Open', 'High', 'Low', 'Close', 'Volume', 'Dividends', 'Stock Splits']
     
-    # Filter hanya kolom yang tersedia (jaga-jaga jika ada yang hilang)
-    cols_to_save = [c for c in expected_cols if c in final_df.columns]
-    final_df = final_df[cols_to_save]
 
-    # Simpan ke CSV
-    os.makedirs(OUTPUT_DIR, exist_ok=True)
-    final_df.to_csv(OUTPUT_FILE, index=False)
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    final_df.to_csv(output_path, index=False)
     
-    print(f">> SUKSES! Data {len(final_df)} baris tersimpan di: {OUTPUT_FILE}")
-    print(f">> Periode: {start_date.date()} s/d {end_date.date()}")
-
-if __name__ == "__main__":
-    download_data()
+    print(f"✅ Data tersimpan di: {output_path}")
+    return output_path

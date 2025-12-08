@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>📈 Stock Prediction ML System</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📈 Stock Prediction ML System</h1>
+            <p>Prediksi Harga Saham 7 Hari ke Depan Berbasis Machine Learning</p>
+        </div>
+        
+        <div class="main-grid">
+            <!-- Left Panel: Input Form -->
+            <div class="card">
+                <h2>🎯 Pilih Saham</h2>
+                <form id="predictionForm">
+                    <div class="form-group">
+                        <label for="ticker">Ticker Saham</label>
+                        <select id="ticker" required>
+                            <option value="">-- Pilih Saham --</option>
+                            {% for ticker in tickers %}
+                            <option value="{{ ticker }}">{{ ticker }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <button type="submit" class="btn" id="predictBtn">
+                        🚀 Prediksi 7 Hari ke Depan
+                    </button>
+                </form>
+                
+                <div class="loading" id="loading">
+                    <div class="spinner"></div>
+                    <p style="margin-top: 10px;">Menganalisis data...</p>
+                </div>
+                
+                <!-- Engineer Info -->
+                <div class="engineer-section">
+                    <div class="tech-info">
+                        <h3>⚙️ Info untuk Data Engineer</h3>
+                        <ul>
+                            <li><strong>Algorithm:</strong> Random Forest Regressor</li>
+                            <li><strong>Features:</strong> 5 (OHLCV)</li>
+                            <li><strong>Training Split:</strong> 80/20</li>
+                            <li><strong>Estimators:</strong> 200 trees</li>
+                            <li><strong>Max Depth:</strong> 15</li>
+                            <li><strong>Min Samples Split:</strong> 5</li>
+                            <li><strong>Random State:</strong> 42</li>
+                            <li><strong>Data Source:</strong> CSV Local</li>
+                            <li><strong>Forecast Method:</strong> Recursive (7 days)</li>
+                            <li><strong>Update Logic:</strong> Open=Close, High=+1%, Low=-1%</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Right Panel: Results -->
+            <div class="card">
+                <h2>📊 Hasil Prediksi</h2>
+                <div id="resultPlaceholder" style="text-align: center; padding: 50px; color: #999;">
+                    <p style="font-size: 3em;">📈</p>
+                    <p>Pilih saham dan klik "Prediksi 7 Hari ke Depan" untuk melihat hasil</p>
+                </div>
+                
+                <div id="predictionResult" class="prediction-result">
+                    <div id="signalCard" class="signal-card"></div>
+                    
+                    <div class="stats-grid">
+                        <div class="stat-box">
+                            <div class="label">Harga Saat Ini</div>
+                            <div class="value" id="currentPrice">-</div>
+                        </div>
+                        <div class="stat-box">
+                            <div class="label">Prediksi 7 Hari</div>
+                            <div class="value" id="futurePrice">-</div>
+                        </div>
+                        <div class="stat-box">
+                            <div class="label">Perubahan</div>
+                            <div class="value" id="priceChange">-</div>
+                        </div>
+                    </div>
+                    
+                    <canvas id="priceChart" style="margin-top: 20px;"></canvas>
+                    
+                    <h3 style="margin-top: 30px; color: #667eea;">📅 Detail Prediksi Harian</h3>
+                    <table class="forecast-table" id="forecastTable">
+                        <thead>
+                            <tr>
+                                <th>Tanggal</th>
+                                <th>Prediksi Harga</th>
+                                <th>Perubahan</th>
+                            </tr>
+                        </thead>
+                        <tbody id="forecastBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>

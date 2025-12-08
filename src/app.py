@@ -1,7 +1,6 @@
 import os
 import joblib
 import pandas as pd
-import numpy as np
 from datetime import timedelta
 from flask import Flask, request, jsonify, render_template
 

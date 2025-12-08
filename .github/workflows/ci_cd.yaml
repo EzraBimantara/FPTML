@@ -1,0 +1,137 @@
+name: Stock Prediction CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - main
+
+env:
+  PYTHON_VERSION: '3.9'
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  # ========================================
+  # JOB 1: TRAIN -> DVC PUSH -> DOCKER BUILD
+  # ========================================
+  train_and_version:
+    name: 'Train, Version & Build'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # Izin untuk commit .dvc file
+      packages: write # Izin untuk upload Docker
+
+    steps:
+      - name: 📥 Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # 1. SETUP LINGKUNGAN
+      - name: 🐍 Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: 📦 Install Full Dependencies (Training)
+        run: pip install -r requirements.txt
+
+      - name: 🔑 Setup Google Drive Credentials
+        run: |
+          echo '${{ secrets.GDRIVE_CREDENTIALS_DATA }}' > gdrive_credentials.json
+          dvc remote modify --local gdrive_storage gdrive_use_service_account true
+          dvc remote modify --local gdrive_storage gdrive_service_account_json_file_path gdrive_credentials.json
+
+      # 2. TRAINING (Jalankan Flow Anda)
+      # Ini akan menghasilkan data baru di folder data/ & models/
+      - name: 🚀 Run Training Pipeline (Main Flow)
+        env:
+          PREFECT_API_KEY: ${{ secrets.PREFECT_API_KEY }}
+          PREFECT_API_URL: ${{ secrets.PREFECT_API_URL }}
+        run: |
+          export PYTHONPATH=$PYTHONPATH:$(pwd)
+          python src/main_flow.py
+
+      # 3. DVC PUSH (Simpan Hasil Training)
+      # Data baru yang dihasilkan training langsung diamankan ke Cloud
+      - name: 📤 Version & Push to DVC
+        run: |
+          # Add file yang baru saja digenerate oleh script python
+          dvc add data/raw/stock_data.csv models/
+          dvc push
+
+      # 4. GIT COMMIT (Update Metadata DVC)
+      # Agar repo tahu ada versi data baru
+      - name: 💾 Commit New DVC Metadata
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/raw/stock_data.csv.dvc models.dvc
+          # Commit dengan [skip ci] agar tidak looping terus menerus
+          git diff --staged --quiet || git commit -m "🤖 CI: Update data & models version [skip ci]"
+          git push origin main || echo "No changes to push"
+
+      # 5. DOCKER BUILD (Simpan Image Project)
+      - name: 🐳 Login to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 🐳 Build and Push Docker Image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+
+  # ========================================
+  # JOB 2: PULL FROM DVC -> DEPLOY
+  # ========================================
+  deploy_production:
+    name: 'Deploy to Vercel'
+    runs-on: ubuntu-latest
+    needs: train_and_version # Tunggu training & upload selesai
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+      - name: 📥 Checkout Code
+        uses: actions/checkout@v4
+
+      # Kita install DVC saja di sini untuk ambil data
+      - name: 🐍 Setup Python & DVC
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      
+      - name: 📦 Install DVC
+        run: pip install dvc dvc-gdrive
+
+      - name: 🔑 Setup Google Drive Credentials (Again)
+        run: |
+          echo '${{ secrets.GDRIVE_CREDENTIALS_DATA }}' > gdrive_credentials.json
+          dvc remote modify --local gdrive_storage gdrive_use_service_account true
+          dvc remote modify --local gdrive_storage gdrive_service_account_json_file_path gdrive_credentials.json
+
+      # 6. PULL DARI DVC (Ambil data yang baru saja dipush job sebelumnya)
+      # Ini menjamin yang dideploy adalah PERSIS sama dengan yang ada di storage
+      - name: 📥 Pull Models & Data from DVC
+        run: |
+          dvc pull models.dvc data/raw/stock_data.csv.dvc
+
+      # 7. CLEANUP (Wajib untuk Vercel Limit)
+      # Hapus DVC dan credentials sebelum dikirim ke Vercel
+      - name: 🧹 Cleanup before Deploy
+        run: |
+          rm -rf .dvc gdrive_credentials.json
+
+      # 8. DEPLOY
+      - name: 🚀 Deploy to Vercel
+        uses: amondnet/vercel-action@v25
+        with:
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+          vercel-args: '--prod'

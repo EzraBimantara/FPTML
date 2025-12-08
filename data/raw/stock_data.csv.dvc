@@ -1,10 +1,5 @@
 outs:
-<<<<<<< HEAD
-- md5: 680d2503f1f2800dfc777605b223d78b
-  size: 365081
-=======
 - md5: 40b1d025d292cea786c6460b589ff3ba
   size: 538755
->>>>>>> tmp
   hash: md5
   path: stock_data.csv

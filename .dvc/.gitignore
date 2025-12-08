@@ -1,3 +1,15 @@
+# --- System & Config ---
 /config.local
+/tmp/
+/cache/
+__pycache__/
+*.pyc
+
+# --- Data Science & MLOps ---
+# Ignore raw data (karena file besar atau dilacak DVC)
+data/raw/*.csv
+
+# Ignore trained models (file binary besar)
+models/
 /tmp
 /cache

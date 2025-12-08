@@ -119,7 +119,7 @@ jobs:
         run: |
           # Install Git LFS
           git lfs install
-          rm .gitignore
+          
           
           # Inisialisasi Git baru khusus untuk upload ke HF
           git init

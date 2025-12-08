@@ -1,8 +1,52 @@
 import os
 import joblib
+import subprocess
 import pandas as pd
 from datetime import timedelta
 from flask import Flask, request, jsonify, render_template
+
+def init_dvc_runtime():
+    """
+    Mendownload data terbaru dari DVC (Google Drive) saat aplikasi Start-up.
+    """
+    print("\n🔄 [INIT] Memulai DVC Runtime Pull...")
+    
+    
+    creds_content = os.getenv("GDRIVE_CREDENTIALS_DATA")
+    
+    if not creds_content:
+        print("⚠️  Warning: Secret GDRIVE_CREDENTIALS_DATA tidak ditemukan.")
+        print("    Menggunakan data lokal yang sudah ada (jika tersedia).")
+        return
+
+    try:
+        
+        creds_path = "gdrive_user_credentials.json"
+        with open(creds_path, "w") as f:
+            f.write(creds_content)
+        
+        
+        commands = [
+            
+            ["dvc", "remote", "modify", "--local", "gdrive_storage", "--unset", "gdrive_use_service_account"],
+            
+            ["dvc", "remote", "modify", "--local", "gdrive_storage", "gdrive_user_credentials_file", creds_path],
+            
+            ["dvc", "pull"] 
+        ]
+
+        for cmd in commands:
+            subprocess.run(cmd, check=True)
+            
+        print("✅ [INIT] DVC Pull Berhasil! Data terbaru siap digunakan.")
+        
+        if os.path.exists(creds_path):
+            os.remove(creds_path)
+
+    except Exception as e:
+        print(f"❌ [INIT] Gagal melakukan DVC Pull: {e}")
+
+init_dvc_runtime()
 
 app = Flask(__name__)
 

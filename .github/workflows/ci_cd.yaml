@@ -122,6 +122,7 @@ jobs:
           
           # Inisialisasi Git baru khusus untuk upload ke HF
           git init
+          git branch -M main
           git config user.email "actions@github.com"
           git config user.name "GitHub Actions"
           

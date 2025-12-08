@@ -6,7 +6,7 @@ on:
       - main
 
 env:
-  PYTHON_VERSION: '3.9'
+  PYTHON_VERSION: '3.10'  
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
 
@@ -35,16 +35,24 @@ jobs:
           cache: 'pip'
 
       - name: 📦 Install Full Dependencies (Training)
-        run: pip install -r requirements.txt
+        run: |
+          pip install -r requirements.txt
+          # Pastikan DVC terinstall (jaga-jaga jika belum ada di requirements.txt)
+          pip install dvc dvc-gdrive
 
+      #  SETUP CREDENTIALS 
       - name: 🔑 Setup Google Drive Credentials
         run: |
-          echo '${{ secrets.GDRIVE_CREDENTIALS_DATA }}' > gdrive_credentials.json
-          dvc remote modify --local gdrive_storage gdrive_use_service_account true
-          dvc remote modify --local gdrive_storage gdrive_service_account_json_file_path gdrive_credentials.json
+          # 1. Tulis secret (User Token) ke file json
+          echo '${{ secrets.GDRIVE_CREDENTIALS_DATA }}' > gdrive_user_credentials.json
+          
+          # 2. Pastikan mode Service Account MATI (agar tidak error quota)
+          dvc remote modify --local gdrive_storage --unset gdrive_use_service_account
+          
+          # 3. Arahkan DVC ke file User Credentials yang baru dibuat
+          dvc remote modify --local gdrive_storage gdrive_user_credentials_file gdrive_user_credentials.json
 
-      # 2. TRAINING (Jalankan Flow Anda)
-      # Ini akan menghasilkan data baru di folder data/ & models/
+      # 2. TRAINING 
       - name: 🚀 Run Training Pipeline (Main Flow)
         env:
           PREFECT_API_KEY: ${{ secrets.PREFECT_API_KEY }}
@@ -54,7 +62,6 @@ jobs:
           python src/main_flow.py
 
       # 3. DVC PUSH (Simpan Hasil Training)
-      # Data baru yang dihasilkan training langsung diamankan ke Cloud
       - name: 📤 Version & Push to DVC
         run: |
           # Add file yang baru saja digenerate oleh script python
@@ -62,7 +69,6 @@ jobs:
           dvc push
 
       # 4. GIT COMMIT (Update Metadata DVC)
-      # Agar repo tahu ada versi data baru
       - name: 💾 Commit New DVC Metadata
         run: |
           git config user.name "github-actions[bot]"
@@ -109,23 +115,23 @@ jobs:
       - name: 📦 Install DVC
         run: pip install dvc dvc-gdrive
 
+      #  SETUP CREDENTIALS (USER MODE)
       - name: 🔑 Setup Google Drive Credentials (Again)
         run: |
-          echo '${{ secrets.GDRIVE_CREDENTIALS_DATA }}' > gdrive_credentials.json
-          dvc remote modify --local gdrive_storage gdrive_use_service_account true
-          dvc remote modify --local gdrive_storage gdrive_service_account_json_file_path gdrive_credentials.json
+          echo '${{ secrets.GDRIVE_CREDENTIALS_DATA }}' > gdrive_user_credentials.json
+          dvc remote modify --local gdrive_storage --unset gdrive_use_service_account
+          dvc remote modify --local gdrive_storage gdrive_user_credentials_file gdrive_user_credentials.json
 
       # 6. PULL DARI DVC (Ambil data yang baru saja dipush job sebelumnya)
-      # Ini menjamin yang dideploy adalah PERSIS sama dengan yang ada di storage
       - name: 📥 Pull Models & Data from DVC
         run: |
           dvc pull models.dvc data/raw/stock_data.csv.dvc
 
       # 7. CLEANUP (Wajib untuk Vercel Limit)
-      # Hapus DVC dan credentials sebelum dikirim ke Vercel
+      # Hapus DVC dan credentials USER sebelum dikirim ke Vercel
       - name: 🧹 Cleanup before Deploy
         run: |
-          rm -rf .dvc gdrive_credentials.json
+          rm -rf .dvc gdrive_user_credentials.json
 
       # 8. DEPLOY
       - name: 🚀 Deploy to Vercel

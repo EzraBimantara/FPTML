@@ -4,7 +4,7 @@ import pandas as pd
 from datetime import datetime, timedelta
 from prefect import task
 
-# Daftar Bank Default
+
 DEFAULT_TICKERS = ["BBRI.JK", "BMRI.JK", "BBNI.JK", "BBTN.JK", "BRIS.JK"]
 
 @task(name="Ingest Data", retries=3, retry_delay_seconds=5)
@@ -39,5 +39,5 @@ def ingest_task(tickers=None, output_path="data/raw/stock_data.csv"):
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
     final_df.to_csv(output_path, index=False)
     
-    print(f"✅ Data tersimpan di: {output_path}")
+    print(f" Data tersimpan di: {output_path}")
     return output_path

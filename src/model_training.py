@@ -6,17 +6,70 @@ import numpy as np
 import matplotlib.pyplot as plt
 import base64
 import io
+import subprocess
 from datetime import timedelta
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 from prefect import task, flow
 from prefect.artifacts import create_markdown_artifact
 
-# Set Style agar visualisasi terlihat modern
+
 plt.style.use('ggplot')
 
 DATA_PATH = r"data/raw/stock_data.csv"
 TARGET_TICKERS = ["BBRI.JK", "BMRI.JK", "BBNI.JK", "BBTN.JK", "BRIS.JK"]
+
+@task(name="Pull Data from Remote")
+def pull_data_from_remote():
+    
+    
+    
+    if os.path.exists(DATA_PATH):
+        print(f"Menghapus file lokal: {DATA_PATH}...")
+        try:
+            os.remove(DATA_PATH)
+            print("    Status: File TERHAPUS. Folder 'data/raw' sekarang bersih.")
+        except Exception as e:
+            print(f"   Gagal menghapus file: {e}")
+    else:
+        print(" Info: File lokal memang tidak ada. Siap download.")
+
+    
+    creds_content = os.getenv("GDRIVE_CREDENTIALS_DATA")
+    creds_path = "gdrive_token.json"
+    
+    if creds_content:
+        print("🔑 [AUTH] Secret Credentials ditemukan, mengkonfigurasi DVC...")
+        with open(creds_path, "w") as f:
+            f.write(creds_content)
+        
+        subprocess.run(["dvc", "remote", "modify", "--local", "gdrive_storage", "gdrive_user_credentials_file", creds_path], check=False)
+
+    
+    print(f"☁️  [DOWNLOAD] Sedang menarik data dari DVC Remote (Google Drive)...")
+    try:
+        
+        result = subprocess.run(
+            ["dvc", "pull", DATA_PATH], 
+            capture_output=True, 
+            text=True, 
+            check=True
+        )
+        
+        print("   " + result.stdout.replace("\n", "\n   ")) 
+        print("✅ SUKSES: Data stock_data.csv berhasil ditarik dari Cloud!")
+        
+    except subprocess.CalledProcessError as e:
+        print(f" ERROR: Gagal menarik data dari DVC.")
+        print(f"   Detail Error: {e.stderr}")
+        raise e 
+    
+    finally:
+        
+        if os.path.exists(creds_path):
+            os.remove(creds_path)
+    
+    print("="*60 + "\n")
 
 def prepare_data(df, ticker):
     data = df[df['Ticker'] == ticker].copy()
@@ -24,7 +77,7 @@ def prepare_data(df, ticker):
     features = ['Open', 'High', 'Low', 'Close', 'Volume']
     data['Target'] = data['Close'].shift(-1)
     
-    # Simpan data terakhir untuk input prediksi
+    
     last_row = data.iloc[[-1]][features].copy()
     
     data = data.dropna()
@@ -242,6 +295,7 @@ Seberapa akurat model ini saat diuji dengan data masa lalu?
 
 @flow(name="Stock-Prediction-System")
 def main_flow():
+    pull_data_from_remote()
     # Parameter sedikit lebih kompleks untuk hasil lebih baik
     params = {
         'n_estimators': 200, 

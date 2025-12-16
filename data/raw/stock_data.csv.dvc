@@ -1,5 +1,5 @@
 outs:
-- md5: 05ae6bbbf98b84ad01b6929a1094836a
-  size: 531856
+- md5: 9b3afe884ce27ee1bd2b374728d35744
+  size: 530764
   hash: md5
   path: stock_data.csv

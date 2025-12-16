@@ -81,6 +81,7 @@ jobs:
         with:
           fetch-depth: 0
           lfs: true 
+          ref: main
 
       # 1. AMBIL MODEL ASLI DARI DVC
       # Kita butuh file .pkl fisik untuk dikirim ke Hugging Face

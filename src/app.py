@@ -327,10 +327,10 @@ def portfolio():
             if input_features is None:
                 return jsonify({"error": f"Ticker {ticker} not found in data."}), 400
 
-            # compute shares (float)
+            
             shares = float(amount) / float(current_price) if float(current_price) > 0 else 0.0
 
-            # Load trained model if available
+            
             safe_ticker = ticker.replace('.', '_')
             model_path = os.path.join(MODEL_DIR, f"model_{safe_ticker}.pkl")
 
@@ -338,7 +338,7 @@ def portfolio():
                 model = joblib.load(model_path)
                 forecast_prices, forecast_dates = recursive_forecast(model, input_features, current_price, last_date, days=days)
             else:
-                # Fallback: linear fit on historical closes
+                
                 hist_prices = history_df['Close'].astype(float).tolist()
                 if len(hist_prices) >= 2:
                     import numpy as _np
@@ -373,7 +373,7 @@ def portfolio():
 
             dates = forecast_dates
 
-        # Aggregate totals per day
+        
         total_per_day = [0.0 for _ in range(days)]
         for t in per_ticker.values():
             for i, v in enumerate(t['forecast_values']):
@@ -385,6 +385,51 @@ def portfolio():
 
         daily_breakdown = [{'date': d, 'total': round(v, 2)} for d, v in zip(dates, total_per_day)]
 
+        
+        daily_breakdown_horizontal = {
+            'dates': dates,
+            'totals': [round(v, 2) for v in total_per_day]
+        }
+
+        
+        try:
+            print('\n' + '='*60)
+            print('PORTFOLIO SUMMARY')
+            print(f"  Total Investasi Saat Ini: Rp {total_current_value:,.2f}")
+            print(f"  Estimasi Total (akhir {days} hari): Rp {total_projected_end:,.2f}")
+            print(f"  Return (Rp): {total_change:,.2f}  |  Percent: {total_change_pct:+.2f}%")
+
+            print('\nDAILY BREAKDOWN (horizontal, chunked)')
+            dates = daily_breakdown_horizontal['dates']
+            totals = daily_breakdown_horizontal['totals']
+
+            
+            chunk_size = 6
+            lines = []
+            for i in range(0, len(dates), chunk_size):
+                d_chunk = dates[i:i+chunk_size]
+                t_chunk = totals[i:i+chunk_size]
+                dates_line = ' | '.join(d_chunk)
+                values_line = ' | '.join([f"Rp {v:,.2f}" for v in t_chunk])
+                print('Dates : ' + dates_line)
+                print('Totals: ' + values_line)
+
+                
+                lines.append(('Dates : ' + dates_line, 'Totals: ' + values_line))
+
+            print('='*60 + '\n')
+
+            
+            parts = []
+            for dl, vl in lines:
+                parts.append(dl)
+                parts.append(vl)
+            daily_str = '\n'.join(parts)
+        except Exception:
+            
+            daily_str = ''
+            pass
+
         response = {
             'meta': {
                 'days': days,
@@ -394,7 +439,9 @@ def portfolio():
                 'total_change_pct': total_change_pct
             },
             'positions': list(per_ticker.values()),
-            'daily_breakdown': daily_breakdown
+            'daily_breakdown': daily_breakdown,
+            'daily_breakdown_horizontal': daily_breakdown_horizontal,
+            'daily_breakdown_str': daily_str
         }
 
         return jsonify(response)

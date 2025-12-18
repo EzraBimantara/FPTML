@@ -89,6 +89,8 @@ body {
     box-shadow: 0 0 0 3px rgba(102,126,234,0.1);
 }
 
+
+
 /* Button */
 .btn {
     width: 100%;
@@ -309,3 +311,38 @@ body {
         font-size: 0.9em;
     }
 }
+
+/* Portfolio helper styles */
+.hidden { display: none; }
+#portfolioResult.show { display: block; animation: fadeIn 0.4s ease-in; }
+
+.portfolio-row {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 10px;
+    align-items: center;
+}
+
+.portfolio-row select,
+.portfolio-row input {
+    padding: 10px;
+    border-radius: 8px;
+    border: 1px solid #e0e0e0;
+    font-size: 0.95em;
+}
+
+.portfolio-row select { min-width: 220px; }
+.portfolio-row input { width: 220px; }
+
+.btn-outline {
+    padding: 10px 12px;
+    border-radius: 8px;
+    border: 2px solid #667eea;
+    background: transparent;
+    color: #667eea;
+    cursor: pointer;
+}
+
+.btn-outline:hover { background: rgba(102,126,234,0.06); }
+
+.table-responsive { overflow-x: auto; }

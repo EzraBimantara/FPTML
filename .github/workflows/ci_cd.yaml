@@ -4,17 +4,17 @@ on:
   push:
     branches:
       - main
+  schedule:
+    - cron: '0 8 * * *
 
 env:
   PYTHON_VERSION: '3.10'
   
-  # Format: username/nama-space
+  
   HF_SPACE_NAME: 'EzrBmntr/stock-prediction' 
 
 jobs:
-  # ========================================
-  # JOB 1: TRAIN & VERSION
-  # ========================================
+  
   train_and_version:
     name: 'Train Model'
     runs-on: ubuntu-latest
@@ -66,9 +66,7 @@ jobs:
           git diff --staged --quiet || git commit -m "🤖 CI: Update data & models [skip ci]"
           git push origin main || echo "No changes to push"
 
-  # ========================================
-  # JOB 2: DEPLOY TO HUGGING FACE
-  # ========================================
+  
   deploy_huggingface:
     name: 'Deploy to HF Space'
     runs-on: ubuntu-latest
@@ -83,8 +81,7 @@ jobs:
           lfs: true 
           ref: main
 
-      # 1. AMBIL MODEL ASLI DARI DVC
-      # Kita butuh file .pkl fisik untuk dikirim ke Hugging Face
+      
       - name: 🐍 Setup Python & DVC
         uses: actions/setup-python@v4
         with:
@@ -104,14 +101,13 @@ jobs:
           # Tarik file fisik dari GDrive ke Runner
           dvc pull models.dvc data/raw/stock_data.csv.dvc
 
-      # 2. BERSIHKAN FILE RAHASIA
-      # Jangan sampai credential GDrive ter-upload ke HF
+      
       - name: 🧹 Cleanup Secrets
         run: |
           rm -rf  gdrive_user_credentials.json .git
           # Hapus folder .git agar kita bisa init ulang untuk push ke HF
 
-      # 3. PUSH KE HUGGING FACE SPACE
+      
       - name: 🚀 Push to Hugging Face Hub
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}

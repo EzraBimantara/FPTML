@@ -204,4 +204,161 @@ function updateTable(data) {
 window.addEventListener('DOMContentLoaded', () => {
     console.log('Stock Prediction System loaded');
     console.log('Ready to predict!');
+
+    // Initialize portfolio UI
+    addPortfolioRow();
 });
+
+// ====== Portfolio UI ======
+let portfolioChart = null;
+
+function addPortfolioRow() {
+    const container = document.getElementById('portfolioInputs');
+
+    const row = document.createElement('div');
+    row.className = 'portfolio-row';
+
+    const select = document.createElement('select');
+    select.className = 'form-control';
+
+    const defaultOpt = document.createElement('option');
+    defaultOpt.value = '';
+    defaultOpt.textContent = '-- Pilih Saham --';
+    select.appendChild(defaultOpt);
+
+    AVAILABLE_TICKERS.forEach(t => {
+        const opt = document.createElement('option');
+        opt.value = t;
+        opt.textContent = t;
+        select.appendChild(opt);
+    });
+
+    const input = document.createElement('input');
+    input.type = 'number';
+    input.placeholder = 'Jumlah Investasi (Rp)';
+    input.min = 0;
+    input.className = 'form-control';
+
+    const removeBtn = document.createElement('button');
+    removeBtn.type = 'button';
+    removeBtn.className = 'btn-outline';
+    removeBtn.textContent = 'Remove';
+    removeBtn.onclick = () => row.remove();
+
+    row.appendChild(select);
+    row.appendChild(input);
+    row.appendChild(removeBtn);
+
+    container.appendChild(row);
+}
+
+async function calculatePortfolio() {
+    const rows = Array.from(document.querySelectorAll('#portfolioInputs .portfolio-row'));
+    const positions = [];
+
+    for (const r of rows) {
+        const ticker = r.querySelector('select').value;
+        const amount = parseFloat(r.querySelector('input').value || 0);
+        if (!ticker || amount <= 0) continue;
+        positions.push({ ticker, amount });
+    }
+
+    if (positions.length === 0) {
+        alert('Tambahkan minimal satu saham dengan jumlah investasi yang valid');
+        return;
+    }
+
+    // Show loading
+    document.getElementById('portfolioLoading').classList.add('show');
+
+    try {
+        const resp = await fetch('/portfolio', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ positions, days: 7 })
+        });
+
+        const data = await resp.json();
+        if (!resp.ok) {
+            alert('Error: ' + (data.error || 'Unknown'));
+            return;
+        }
+
+        renderPortfolioResults(data);
+
+    } catch (err) {
+        console.error(err);
+        alert('Terjadi kesalahan saat menghitung portfolio');
+    } finally {
+        document.getElementById('portfolioLoading').classList.remove('show');
+    }
+}
+
+function renderPortfolioResults(data) {
+    // Summary
+    document.getElementById('totalCurrent').textContent = 'Rp ' + data.meta.total_current.toLocaleString('id-ID');
+    document.getElementById('totalProjected').textContent = 'Rp ' + data.meta.total_projected_end.toLocaleString('id-ID');
+    const change = data.meta.total_change >= 0 ? ('+' + data.meta.total_change) : (data.meta.total_change);
+    const changeEl = document.getElementById('totalChange');
+    changeEl.textContent = change + ' (' + (data.meta.total_change_pct) + '%)';
+    changeEl.className = 'value ' + (data.meta.total_change >= 0 ? 'price-up' : 'price-down');
+
+    // Per-ticker table
+    const tbody = document.getElementById('portfolioTableBody');
+    tbody.innerHTML = '';
+    data.positions.forEach(p => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td>${p.ticker}</td>
+            <td>Rp ${p.investment.toLocaleString('id-ID')}</td>
+            <td>Rp ${p.forecast_values[p.forecast_values.length - 1].toLocaleString('id-ID')}</td>
+            <td>${p.shares}</td>
+        `;
+        tbody.appendChild(tr);
+    });
+
+    // Daily breakdown table
+    const dailyBody = document.getElementById('portfolioDailyBody');
+    dailyBody.innerHTML = '';
+    const chartLabels = [];
+    const chartValues = [];
+
+    data.daily_breakdown.forEach(d => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td>${d.date}</td>
+            <td>Rp ${Math.round(d.total).toLocaleString('id-ID')}</td>
+        `;
+        dailyBody.appendChild(tr);
+        chartLabels.push(d.date);
+        chartValues.push(d.total);
+    });
+
+    // Draw chart
+    const ctx = document.getElementById('portfolioChart');
+    if (portfolioChart) portfolioChart.destroy();
+
+    portfolioChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: chartLabels,
+            datasets: [{
+                label: 'Total Portfolio (Rp)',
+                data: chartValues,
+                borderColor: '#2ecc71',
+                backgroundColor: 'rgba(46,204,113,0.08)',
+                tension: 0.3,
+                fill: true
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: { tooltip: { callbacks: { label: (ctx) => 'Rp ' + Math.round(ctx.parsed.y).toLocaleString('id-ID') } } },
+            scales: { y: { ticks: { callback: v => 'Rp ' + Math.round(v).toLocaleString('id-ID') } } }
+        }
+    });
+
+    // Show result
+    const result = document.getElementById('portfolioResult');
+    result.classList.add('show');
+}

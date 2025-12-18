@@ -294,6 +294,116 @@ def predict():
         import traceback
         traceback.print_exc()
         return jsonify({"error": "Internal Server Error", "details": str(e)}), 500
+    
+
+
+@app.route('/portfolio', methods=['POST'])
+def portfolio():
+    """API endpoint to evaluate a portfolio over the next N days.
+    Request JSON: { "positions": [{"ticker": "BBRI.JK", "amount": 1000000}, ...], "days": 7 }
+    Response: daily breakdown + per-ticker forecasts and summary totals
+    """
+    try:
+        payload = request.get_json() or {}
+        positions = payload.get('positions', [])
+        days = int(payload.get('days', 7))
+
+        if not positions or not isinstance(positions, list):
+            return jsonify({"error": "Request must include 'positions' as a non-empty list."}), 400
+
+        summary = {}
+        total_current_value = 0.0
+        dates = None
+        per_ticker = {}
+
+        for pos in positions:
+            ticker = pos.get('ticker')
+            amount = float(pos.get('amount', 0) or 0)
+
+            if not ticker or amount <= 0:
+                return jsonify({"error": "Each position must include a valid 'ticker' and positive 'amount'.", "position": pos}), 400
+
+            input_features, current_price, last_date, history_df = get_latest_market_data_from_csv(ticker, DATA_PATH)
+            if input_features is None:
+                return jsonify({"error": f"Ticker {ticker} not found in data."}), 400
+
+            # compute shares (float)
+            shares = float(amount) / float(current_price) if float(current_price) > 0 else 0.0
+
+            # Load trained model if available
+            safe_ticker = ticker.replace('.', '_')
+            model_path = os.path.join(MODEL_DIR, f"model_{safe_ticker}.pkl")
+
+            if os.path.exists(model_path):
+                model = joblib.load(model_path)
+                forecast_prices, forecast_dates = recursive_forecast(model, input_features, current_price, last_date, days=days)
+            else:
+                # Fallback: linear fit on historical closes
+                hist_prices = history_df['Close'].astype(float).tolist()
+                if len(hist_prices) >= 2:
+                    import numpy as _np
+                    x = _np.arange(len(hist_prices))
+                    y = _np.array(hist_prices)
+                    coeff = _np.polyfit(x, y, 1)
+                    slope = coeff[0]
+                    forecast_prices = []
+                    for i in range(1, days + 1):
+                        forecast_val = y[-1] + slope * i
+                        forecast_prices.append(round(float(forecast_val), 0))
+                else:
+                    forecast_prices = [round(current_price, 0)] * days
+
+                forecast_dates = [(last_date + timedelta(days=i)).strftime('%Y-%m-%d') for i in range(1, days + 1)]
+
+            # Per-day value for this position
+            forecast_values = [round(shares * float(p), 2) for p in forecast_prices]
+            current_value = round(shares * float(current_price), 2)
+            total_current_value += current_value
+
+            per_ticker[ticker] = {
+                'ticker': ticker,
+                'investment': round(amount, 2),
+                'shares': round(shares, 8),
+                'current_price': float(current_price),
+                'current_value': current_value,
+                'forecast_dates': forecast_dates,
+                'forecast_prices': [float(p) for p in forecast_prices],
+                'forecast_values': forecast_values
+            }
+
+            dates = forecast_dates
+
+        # Aggregate totals per day
+        total_per_day = [0.0 for _ in range(days)]
+        for t in per_ticker.values():
+            for i, v in enumerate(t['forecast_values']):
+                total_per_day[i] += v
+
+        total_projected_end = total_per_day[-1] if total_per_day else total_current_value
+        total_change = round(total_projected_end - total_current_value, 2)
+        total_change_pct = round((total_change / total_current_value * 100) if total_current_value > 0 else 0.0, 2)
+
+        daily_breakdown = [{'date': d, 'total': round(v, 2)} for d, v in zip(dates, total_per_day)]
+
+        response = {
+            'meta': {
+                'days': days,
+                'total_current': round(total_current_value, 2),
+                'total_projected_end': round(total_projected_end, 2),
+                'total_change': total_change,
+                'total_change_pct': total_change_pct
+            },
+            'positions': list(per_ticker.values()),
+            'daily_breakdown': daily_breakdown
+        }
+
+        return jsonify(response)
+
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': 'Internal Server Error', 'details': str(e)}), 500
+
 
 @app.route('/available-tickers', methods=['GET'])
 def available_tickers():

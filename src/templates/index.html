@@ -102,7 +102,75 @@
             </div>
         </div>
     </div>
-    
+
+    <!-- Portfolio Tracker Card -->
+    <div class="main-grid" style="margin-top: 30px;">
+        <div class="card" style="grid-column: 1 / -1;">
+            <h2>💼 Portfolio Tracker</h2>
+            <p class="subtitle">Masukkan saham dan nominal investasi Anda</p>
+            <div id="portfolioInputs" style="margin-bottom: 10px;"></div>
+            <div class="portfolio-actions" style="display:flex; gap:10px; margin-bottom:10px;">
+                <button class="btn-outline" onclick="addPortfolioRow()">+ Tambah Saham</button>
+                <button class="btn" onclick="calculatePortfolio()">🧮 Hitung Proyeksi</button>
+            </div>
+
+            <div class="loading" id="portfolioLoading">
+                <div class="spinner"></div>
+                <p>Menghitung valuasi aset...</p>
+            </div>
+
+            <div id="portfolioResult" class="hidden">
+                <div class="stats-grid">
+                    <div class="stat-box">
+                        <div class="label">Total Aset Sekarang</div>
+                        <div class="value" id="totalCurrent">-</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="label">Estimasi Nanti</div>
+                        <div class="value" id="totalProjected">-</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="label">Net Profit/Loss</div>
+                        <div class="value" id="totalChange">-</div>
+                    </div>
+                </div>
+
+                <canvas id="portfolioChart" style="margin: 20px 0; max-height: 250px;"></canvas>
+
+                <h3>📋 Breakdown Aset</h3>
+                <div class="table-responsive">
+                    <table class="forecast-table">
+                        <thead>
+                            <tr>
+                                <th>Saham</th>
+                                <th>Investasi</th>
+                                <th>Est. Value (Akhir)</th>
+                                <th>Shares</th>
+                            </tr>
+                        </thead>
+                        <tbody id="portfolioTableBody"></tbody>
+                    </table>
+                </div>
+
+                <h3>📆 Proyeksi Per Hari (7 Hari)</h3>
+                <div class="table-responsive">
+                    <table class="forecast-table">
+                        <thead>
+                            <tr>
+                                <th>Tanggal</th>
+                                <th>Estimasi Total Portfolio (Rp)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="portfolioDailyBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const AVAILABLE_TICKERS = {{ tickers | tojson | safe }};
+    </script>
     <script src="{{ url_for('static', filename='script.js') }}"></script>
 </body>
 </html>

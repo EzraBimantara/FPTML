@@ -1,12 +1,11 @@
 ---
-title: Stock Prediction ML System
-emoji: "📈"
-colorFrom: gray
-colorTo: black
-sdk: python
-sdk_version: "3.10"
-app_file: src/app.py
+title: Stock Prediction API
+emoji: 📈
+colorFrom: green
+colorTo: blue
+sdk: docker
 pinned: false
+app_port: 7860
 ---
 
 # Stock Prediction ML System

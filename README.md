@@ -1,3 +1,14 @@
+---
+title: Stock Prediction ML System
+emoji: "📈"
+colorFrom: gray
+colorTo: black
+sdk: python
+sdk_version: "3.10"
+app_file: src/app.py
+pinned: false
+---
+
 # Stock Prediction ML System
 
 Ringkasan singkat: aplikasi Flask untuk prediksi harga saham (7 hari) menggunakan model terlatih dan data CSV. README ini berfokus pada instruksi instalasi dan cara menjalankan aplikasi secara cepat.

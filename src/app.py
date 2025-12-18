@@ -155,13 +155,13 @@ def generate_recommendation(current_price, future_prices):
     downside = (min_price - current_price) / current_price * 100
     
     if upside > 2.0:
-        signal = "🟢 STRONG BUY"
+        signal = "STRONG BUY"
         reason = f"Potensi Profit: +{upside:.2f}% dalam 7 hari."
     elif downside < -2.0:
-        signal = "🔴 STRONG SELL"
+        signal = "STRONG SELL"
         reason = f"Risiko Jatuh: {downside:.2f}% dalam 7 hari."
     else:
-        signal = "⚪ WAIT & HOLD"
+        signal = "WAIT & HOLD"
         reason = "Pasar Sideways (Datar), tunggu sinyal lebih kuat."
         
     return signal, reason
@@ -447,6 +447,7 @@ if __name__ == '__main__':
     print(f"📁 Model Directory: {MODEL_DIR}")
     print("\n📍 Endpoints:")
     print("   - POST /predict            : Get stock prediction")
+    print("   - POST /portfolio            : Get live prediction for portfolio")
     print("   - GET  /available-tickers  : List available tickers")
     print("   - GET  /health            : Health check")
     print("="*60 + "\n")

@@ -205,28 +205,105 @@ window.addEventListener('DOMContentLoaded', () => {
     console.log('Stock Prediction System loaded');
     console.log('Ready to predict!');
 
-    // Initialize portfolio UI
-    addPortfolioRow();
+    // Ensure single tab visible on load
+    switchTab('single');
 });
+
+// Tab switch helper
+function switchTab(tabName) {
+    // Update button active state
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.tab === tabName);
+    });
+
+    // Show/hide contents
+    document.querySelectorAll('.tab-content').forEach(el => {
+        if (el.id === tabName + '-tab') {
+            el.style.display = '';
+            el.classList.add('active');
+            if (tabName === 'portfolio') {
+                // ensure at least one input row
+                const inputs = document.getElementById('portfolioInputs');
+                if (inputs && inputs.children.length === 0) addPortfolioRow();
+                // refresh ticker options to prevent duplicates
+                updateTickerOptions();
+            }
+        } else {
+            el.style.display = 'none';
+            el.classList.remove('active');
+        }
+    });
+}
 
 // ====== Portfolio UI ======
 let portfolioChart = null;
 
+function getSelectedTickers() {
+    return Array.from(document.querySelectorAll('#portfolioInputs select'))
+        .map(s => s.value)
+        .filter(Boolean);
+}
+
+function updateAddButtonState() {
+    const addBtn = document.getElementById('addPortfolioBtn');
+    if (!addBtn) return;
+    const selected = getSelectedTickers();
+    addBtn.disabled = (selected.length >= AVAILABLE_TICKERS.length);
+}
+
+function updateTickerOptions() {
+    const selects = Array.from(document.querySelectorAll('#portfolioInputs select'));
+    const selected = getSelectedTickers();
+
+    selects.forEach(sel => {
+        const current = sel.value;
+        sel.innerHTML = '';
+        const defaultOpt = document.createElement('option');
+        defaultOpt.value = '';
+        defaultOpt.textContent = '-- Pilih Saham --';
+        sel.appendChild(defaultOpt);
+
+        AVAILABLE_TICKERS.forEach(t => {
+            const opt = document.createElement('option');
+            opt.value = t;
+            opt.textContent = t;
+            // disable if selected in another row
+            if (t !== current && selected.includes(t)) {
+                opt.disabled = true;
+                opt.textContent = t + ' (dipilih)';
+            }
+            sel.appendChild(opt);
+        });
+
+        sel.value = current;
+    });
+
+    updateAddButtonState();
+}
+
 function addPortfolioRow() {
     const container = document.getElementById('portfolioInputs');
+
+    // Prevent adding more rows than available unique tickers
+    const available = AVAILABLE_TICKERS.filter(t => !getSelectedTickers().includes(t));
+    if (available.length === 0) {
+        alert('Semua ticker sudah dipilih. Hapus baris yang ada untuk menambahkan lainnya.');
+        return;
+    }
 
     const row = document.createElement('div');
     row.className = 'portfolio-row';
 
     const select = document.createElement('select');
     select.className = 'form-control';
+    select.addEventListener('change', updateTickerOptions);
 
     const defaultOpt = document.createElement('option');
     defaultOpt.value = '';
     defaultOpt.textContent = '-- Pilih Saham --';
     select.appendChild(defaultOpt);
 
-    AVAILABLE_TICKERS.forEach(t => {
+    available.forEach(t => {
         const opt = document.createElement('option');
         opt.value = t;
         opt.textContent = t;
@@ -242,14 +319,16 @@ function addPortfolioRow() {
     const removeBtn = document.createElement('button');
     removeBtn.type = 'button';
     removeBtn.className = 'btn-outline';
-    removeBtn.textContent = 'Remove';
-    removeBtn.onclick = () => row.remove();
+    removeBtn.textContent = 'Hapus';
+    removeBtn.onclick = () => { row.remove(); updateTickerOptions(); };
 
     row.appendChild(select);
     row.appendChild(input);
     row.appendChild(removeBtn);
 
     container.appendChild(row);
+
+    updateTickerOptions();
 }
 
 async function calculatePortfolio() {
@@ -261,6 +340,14 @@ async function calculatePortfolio() {
         const amount = parseFloat(r.querySelector('input').value || 0);
         if (!ticker || amount <= 0) continue;
         positions.push({ ticker, amount });
+    }
+
+    // Prevent duplicates as a safety check
+    const tickers = positions.map(p => p.ticker);
+    const unique = [...new Set(tickers)];
+    if (unique.length !== tickers.length) {
+        alert('Duplikat ticker terdeteksi. Pastikan setiap baris memilih ticker yang berbeda.');
+        return;
     }
 
     if (positions.length === 0) {

@@ -3,8 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>📈 Stock Prediction ML System</title>
+    <title>Stock Prediction ML System</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        
+        .btn-outline:disabled, .btn-outline.disabled { opacity: 0.6; cursor: not-allowed; pointer-events: none; }
+    </style>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
@@ -13,11 +18,17 @@
             <h1>Stock Prediction ML System</h1>
             <p>Prediksi Harga Saham 7 hari ke Depan Berbasis Machine Learning</p>
         </div>
-        
+
+        <div class="tabs">
+            <button class="tab-btn active" data-tab="single" onclick="switchTab('single')">SAHAM TUNGGAL</button>
+            <button class="tab-btn" data-tab="portfolio" onclick="switchTab('portfolio')">PORTOFOLIO</button>
+        </div>
+
+        <div id="single-tab" class="tab-content active">
         <div class="main-grid">
             <!-- Left Panel: Input Form -->
             <div class="card">
-                <h2>🎯 Pilih Saham</h2>
+                <h2>Analisa Saham</h2>
                 <form id="predictionForm">
                     <div class="form-group">
                         <label for="ticker">Ticker Saham</label>
@@ -29,8 +40,8 @@
                         </select>
                     </div>
                     
-                    <button type="submit" class="btn" id="predictBtn">
-                        🚀 Prediksi 7 hari ke Depan
+                    <button type="submit" class="btn btn-block" id="predictBtn">
+                        Prediksi 7 Hari
                     </button>
                 </form>
                 
@@ -42,7 +53,7 @@
                 <!-- Engineer Info -->
                 <div class="engineer-section">
                     <div class="tech-info">
-                        <h3>⚙️ Info untuk Data Engineer</h3>
+                        <h3>Info untuk Data Engineer</h3>
                         <ul>
                             <li><strong>Algorithm:</strong> Random Forest Regressor</li>
                             <li><strong>Features:</strong> 5 (OHLCV)</li>
@@ -61,10 +72,10 @@
             
             <!-- Right Panel: Results -->
             <div class="card">
-                <h2>📊 Hasil Prediksi</h2>
+                <h2>Hasil Prediksi</h2>
                 <div id="resultPlaceholder" style="text-align: center; padding: 50px; color: #999;">
-                    <p style="font-size: 3em;">📈</p>
-                    <p>Pilih saham dan klik "Prediksi 7 hari ke Depan" untuk melihat hasil</p>
+                    <p style="font-size: 3em;">—</p>
+                    <p>Pilih saham dan klik "Prediksi 7 Hari" untuk melihat hasil</p>
                 </div>
                 
                 <div id="predictionResult" class="prediction-result">
@@ -76,7 +87,7 @@
                             <div class="value" id="currentPrice">-</div>
                         </div>
                         <div class="stat-box">
-                            <div class="label">Prediksi 7 hari</div>
+                            <div class="label">Prediksi 7 Hari</div>
                             <div class="value" id="futurePrice">-</div>
                         </div>
                         <div class="stat-box">
@@ -87,7 +98,7 @@
                     
                     <canvas id="priceChart" style="margin-top: 20px;"></canvas>
                     
-                    <h3 style="margin-top: 30px; color: #667eea;">📅 Detail Prediksi Harian</h3>
+                    <h3 class="section-subtitle">Detail Prediksi Harian</h3> 
                     <table class="forecast-table" id="forecastTable">
                         <thead>
                             <tr>
@@ -101,72 +112,73 @@
                 </div>
             </div>
         </div>
-    </div>
+        </div> 
 
-    <!-- Portfolio Tracker Card -->
-    <div class="main-grid" style="margin-top: 30px;">
-        <div class="card" style="grid-column: 1 / -1;">
-            <h2>💼 Portfolio Tracker</h2>
-            <p class="subtitle">Masukkan saham dan nominal investasi Anda</p>
-            <div id="portfolioInputs" style="margin-bottom: 10px;"></div>
-            <div class="portfolio-actions" style="display:flex; gap:10px; margin-bottom:10px;">
-                <button class="btn-outline" onclick="addPortfolioRow()">+ Tambah Saham</button>
-                <button class="btn" onclick="calculatePortfolio()">🧮 Hitung Proyeksi</button>
-            </div>
-
-            <div class="loading" id="portfolioLoading">
-                <div class="spinner"></div>
-                <p>Menghitung valuasi aset...</p>
-            </div>
-
-            <div id="portfolioResult" class="hidden">
-                <div class="stats-grid">
-                    <div class="stat-box">
-                        <div class="label">Total Aset Sekarang</div>
-                        <div class="value" id="totalCurrent">-</div>
+        <div id="portfolio-tab" class="tab-content" style="display:none;">
+            <div class="main-grid" style="margin-top: 30px;">
+                <div class="card" style="grid-column: 1 / -1;">
+                    <h2>Pelacak Portofolio</h2>
+                    <p class="subtitle">Masukkan saham dan jumlah investasi per posisi</p> 
+                    <div id="portfolioInputs" style="margin-bottom: 10px;"></div>
+                    <div class="portfolio-actions" style="display:flex; gap:10px; margin-bottom:10px;">
+                        <button id="addPortfolioBtn" class="btn-outline" onclick="addPortfolioRow()">+ Tambah Saham</button>
+                        <button id="calcPortfolioBtn" class="btn btn-block" onclick="calculatePortfolio()">Hitung Proyeksi</button>
                     </div>
-                    <div class="stat-box">
-                        <div class="label">Estimasi Nanti</div>
-                        <div class="value" id="totalProjected">-</div>
+
+                    <div class="loading" id="portfolioLoading">
+                        <div class="spinner"></div>
+                        <p>Menghitung valuasi aset...</p>
                     </div>
-                    <div class="stat-box">
-                        <div class="label">Net Profit/Loss</div>
-                        <div class="value" id="totalChange">-</div>
+
+                    <div id="portfolioResult" class="hidden">
+                        <div class="stats-grid">
+                            <div class="stat-box">
+                                <div class="label">Total Aset Sekarang</div>
+                                <div class="value" id="totalCurrent">-</div>
+                            </div>
+                            <div class="stat-box">
+                                <div class="label">Estimasi Nanti</div>
+                                <div class="value" id="totalProjected">-</div>
+                            </div>
+                            <div class="stat-box">
+                                <div class="label">Laba/Rugi Bersih</div>
+                                <div class="value" id="totalChange">-</div>
+                            </div>
+                        </div>
+
+                        <canvas id="portfolioChart" style="margin: 20px 0; max-height: 250px;"></canvas>
+
+                        <h3 class="section-subtitle">Breakdown Aset</h3>
+                        <div class="table-responsive">
+                            <table class="forecast-table">
+                                <thead>
+                                    <tr>
+                                        <th>Saham</th>
+                                        <th>Investasi</th>
+                                        <th>Est. Value (Akhir)</th>
+                                        <th>Shares</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="portfolioTableBody"></tbody>
+                            </table>
+                        </div>
+
+                        <h3 class="section-subtitle">Proyeksi Per Hari (7 Hari)</h3> 
+                        <div class="table-responsive">
+                            <table class="forecast-table">
+                                <thead>
+                                    <tr>
+                                        <th>Tanggal</th>
+                                        <th>Estimasi Total Portfolio (Rp)</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="portfolioDailyBody"></tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
-
-                <canvas id="portfolioChart" style="margin: 20px 0; max-height: 250px;"></canvas>
-
-                <h3>📋 Breakdown Aset</h3>
-                <div class="table-responsive">
-                    <table class="forecast-table">
-                        <thead>
-                            <tr>
-                                <th>Saham</th>
-                                <th>Investasi</th>
-                                <th>Est. Value (Akhir)</th>
-                                <th>Shares</th>
-                            </tr>
-                        </thead>
-                        <tbody id="portfolioTableBody"></tbody>
-                    </table>
-                </div>
-
-                <h3>📆 Proyeksi Per Hari (7 Hari)</h3>
-                <div class="table-responsive">
-                    <table class="forecast-table">
-                        <thead>
-                            <tr>
-                                <th>Tanggal</th>
-                                <th>Estimasi Total Portfolio (Rp)</th>
-                            </tr>
-                        </thead>
-                        <tbody id="portfolioDailyBody"></tbody>
-                    </table>
-                </div>
             </div>
-        </div>
-    </div>
+        </div> 
 
     <script>
         const AVAILABLE_TICKERS = {{ tickers | tojson | safe }};

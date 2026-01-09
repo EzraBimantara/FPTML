@@ -79,11 +79,11 @@ Ringkasan singkat: aplikasi Flask untuk prediksi harga saham (7 hari) menggunaka
 ## 6) Endpoint & contoh pemakaian
 - Health check
   ```bash
-  Invoke-RestMethod -Uri 'http://localhost:5000/health' -Method GET
+  Invoke-RestMethod -Uri 'http://localhost:5000/health' -Method GET /
   ```
 - Daftar ticker yang tersedia
   ```bash
-  Invoke-RestMethod -Uri 'http://localhost:5000/available-tickers' -Method GET
+  Invoke-RestMethod -Uri 'http://localhost:5000/available-tickers' -Method GET/
   ```
 - Mendapatkan prediksi untuk ticker
   ```bash
